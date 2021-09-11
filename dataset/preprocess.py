@@ -36,9 +36,8 @@ def preprocess(steelType, stoveNum, input_factors, output_factors, paths):
     # 构建特征工程
     df = Featurization(df)
     # 数据集划分
-    df_input = df.loc[:, input_factors]
-    df_output = df.loc[:, output_factors]
-    split(df_input, df_output, paths)
+    split(df, input_factors, output_factors, paths)
+
 
 def native(steelType, stoveNum, input_factors, output_factors):
     """
@@ -70,6 +69,7 @@ def native(steelType, stoveNum, input_factors, output_factors):
     # 将输入和输出属性进行合并
     columns = input_factors + output_factors
     df_res = df.loc[:, columns]
+    # 重置index
     df_res.index = range(len(df_res))
     return df_res
 
@@ -78,10 +78,10 @@ def cleanout(df):
     清洗掉DataFrame内的空值和异常值
     """
     # 去掉空值
-    df = df.dropna(axis=0, how='any').reset_index()
+    df = df.dropna(axis=0, how='any').reset_index(drop=True)
     # 去掉异常值
     error_rows = error_index(df)
-    df_res = df.drop(error_rows, axis=0).reset_index()
+    df_res = df.drop(error_rows, axis=0).reset_index(drop=True)
     return df_res
 
 def Featurization(df):
@@ -90,22 +90,28 @@ def Featurization(df):
     """
     return df
 
-def split(df_input, df_output, paths):
+def split(df, input_factors, output_factors, paths):
     """
     将数据归一化、保存归一化模型并划分训练集和测试集
 
     Parameters
     ----------
-    df_input: pd.DataFrame
+    df: pd.DataFrame
+        data
+    input_factors: list
         影响因素，可能对结果产生影响的输入因素
-    df_output: pd.DataFrame
+    output_factors: list
         回归因素，输出因素
-    
+    paths: pathlib.Path
+        路径，包含path_train, path_test, path_inputScaler, path_outputScaler
+
     Return
     ------
     None
     """
     path_train, path_test, path_inputScaler, path_outputScaler = paths
+    df_input = df.loc[:, input_factors]
+    df_output = df.loc[:, output_factors]
     # 对数据进行归一化
     minmax_inputScaler = MinMaxScaler()
     minmax_outputScaler = MinMaxScaler()
@@ -123,9 +129,12 @@ def split(df_input, df_output, paths):
     # 训练集、测试集划分
     df_train, df_test = train_test_split(df_norm, test_size=test_size, random_state=42)
 
+    df_train.columns = df.columns
+    df_test.columns = df.columns
+
     # 保存文件
-    df_train.to_csv(path_train, encoding='gbk', index=0)
-    df_test.to_csv(path_test, encoding='gbk', index=0)
+    df_train.to_csv(path_train, encoding='gbk', index=False)
+    df_test.to_csv(path_test, encoding='gbk', index=False)
 
 def error_index(df, coef=3.5):
     """
@@ -144,4 +153,5 @@ def error_index(df, coef=3.5):
     return error_rows
 
 if __name__ == '__main__':
+    # print(sys.argv[0])
     preprocess('Q235B-Z', 1, input_factorsTest, output_factorsTest)

@@ -29,7 +29,7 @@ input_factorsTest = ['ingredient_C', 'ingredient_Si', 'ingredient_Mn', 'ingredie
                 'dolomite_append', 'mineral_append', 'qingshao_append', 'steelLiq_pullTemp1', 'nitrogen_time']
 # 测试时的输出属性
 output_factorsTest = ['terminal_C', 'terminal_S', 'terminal_P', 'terminal_Mn']
-# 回归时的输出属性
+# 回归时的输出属性 
 output_factorsRegression = ['terminal_C']
 
 index_builk_ori = ['生产日期', '班次', '炉次', '炉龄', '计划钢种', '氧枪枪龄（东枪）', '氧枪枪龄（西枪）', '氧枪模式',

@@ -1,17 +1,16 @@
 import os
 import sys
 os.chdir(r'F:\code\python\data_mining\possc-pytorch')
-sys.path.append('F:\code\python\data_mining\possc-pytorch')
+sys.path.append('F:\code\python\data_mining\possc2.0')
 
 import argparse
-from pathlib import Path
-from generation.data_generation import DataGeneration
-from preprocess.data_preprocess import DataPreprocess
-from train.train_bp_model import BpModelTrain
-from pred.pred_bp_model import BpModelPred
-from pred.pred_linear_regression import LRegressionPred
-from pred.test_bp_model import BpModelTest
-from utils.clean import SystemReset, Clean
+from dataset.generation import generation
+from dataset.preprocess import preprocess
+
+from train.train_nn import train
+from pred.pred_nn import predict, test
+from pred.pred_lr import linearRegression
+from utils.clean import *
 
 if __name__ == '__main__':
     parse = argparse.ArgumentParser()
@@ -41,31 +40,26 @@ if __name__ == '__main__':
         stove_num = args.train_model[1]
         input_columns = args.train_model[2].split(',')
         output_columns = args.train_model[3].split(',')
-        bptrain = BpModelTrain(steel_type, stove_num, input_columns, output_columns)
-        bptrain.train()
+        train(steel_type, stove_num, input_columns, output_columns)
     elif args.generate_data:
-        dg = DataGeneration()
-        dg.dataGeneration()
+        generation()
     elif args.process_data is not None:
         steelType = args.train_model[0]
         stoveNum = args.train_model[1]
         input_factors = args.train_model[2]
         output_factors = args.train_model[3]
-        dp = DataPreprocess(steelType, stoveNum, input_factors, output_factors)
-        dp.dataPreprocess()
+        preprocess(steelType, stoveNum, input_factors, output_factors)
     elif args.predict is not None:
         steelType = args.predict[0]
         stoveNum = args.predict[1]
         input_factorNum = args.predict[2].split(',')
         code_16 = args.predict[3]
-        bppred = BpModelPred(steelType, stoveNum, input_factorNum, code_16)
-        bppred.predict()
+        predict(steelType, stoveNum, input_factorNum, code_16)
     elif args.test_model is not None:
         steelType = args.test_model[0]
         stoveNum = args.test_model[1]
         code_16 = args.test_model[2]
-        bptest = BpModelTest(steelType, stoveNum, code_16)
-        bptest.test()
+        test(steelType, stoveNum, code_16)
     elif args.linear_regression is not None:
         steelType = args.linear_regression[0]
         stoveNum = args.linear_regression[1]
@@ -73,22 +67,18 @@ if __name__ == '__main__':
         output_factors = []
         output_factors.append(args.linear_regression[3])
         input_factorNum = args.linear_regression[4].split(',')
-        linear_regression = LRegressionPred(steelType, stoveNum, input_factors, output_factors, input_factorNum)
-        linear_regression.linearRegression()
+        linearRegression(steelType, stoveNum, input_factors, output_factors, input_factorNum)
     elif args.system_reset:
-        rt = SystemReset()
-        rt.reset()
+        sysReset()
     elif args.clean_steelTypeCache is not None:
         steelType = args.clean_steelTypeCache[0]
         stoveNum = args.clean_steelTypeCache[1]
-        cl = Clean(steelType, stoveNum)
-        cl.rm_steelTypeAllFile()
+        rm_steelTypeAllFile(steelType)
     elif args.clean_steelTypeCodeCache is not None:
         steelType = args.clean_steelTypeCodeCache[0]
         stoveNum = args.clean_steelTypeCodeCache[1]
         code_16 = args.clean_steelTypeCodeCache[2]
-        cl = Clean(steelType, stoveNum, code_16)
-        cl.rm_steelTypeFile(code_16)
+        rm_dataFile(steelType, stoveNum, code_16)
 
         
 
