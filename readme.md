@@ -24,9 +24,10 @@ This is a new pytorch deep learning project that recognizes data processing and 
 
 ### 下载部分数据文件‘SteelmakingData’
 
-冶炼数据转炉操作数据表下载：
+冶炼数据转炉操作数据表下载：  
 
-下载地址：
+下载地址：  
+
 [百度网盘](https://pan.baidu.com/s/1q6q3-damswB9u0kkO0N1uQ ) 提取码：pyzc  
 
 放置在：
@@ -46,9 +47,11 @@ pip install visdom opencv-python scikit-learn joblib
 
 ## 参数更改
 
-使用时需要更改部分参数：
-    1） possc.py 文件中第3，4行，将路径改为自己的路径
-    2） constants 目录下的parameters.py文件保存了冶炼参数，根据需要更改
+使用时需要更改部分参数:  
+
+① possc.py 文件中第3，4行，将路径改为自己的路径  
+
+② constants 目录下的parameters.py文件保存了冶炼参数，根据需要更改
 
 ## 使用
 
