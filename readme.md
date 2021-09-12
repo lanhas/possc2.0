@@ -26,8 +26,8 @@ This is a new pytorch deep learning project that recognizes data processing and 
 
 冶炼数据转炉操作数据表下载：
 
-转炉数据1号炉：[Nutstore 坚果云](https://www.jianguoyun.com/p/DU6eNA8QtZeiCRifneQD)
-转炉数据2号炉：[Nutstore 坚果云](https://www.jianguoyun.com/p/DaowMJkQtZeiCRibneQD)
+下载地址：
+[百度网盘](https://pan.baidu.com/s/1q6q3-damswB9u0kkO0N1uQ ) 提取码：pyzc  
 
 放置在：
 ```
