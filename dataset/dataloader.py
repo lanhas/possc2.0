@@ -1,5 +1,5 @@
 import sys
-sys.path.append('F:\code\python\data_mining\possc2.0')
+sys.path.append('.')
 from constants.parameters import *
 import numpy as np
 import pandas as pd
@@ -39,8 +39,9 @@ def getTrainloader(steelType, stoveNum, input_factors, output_factors, batch_siz
     dataloader_val: DataLoader
         验证集
     """
+    val_size = 0.15
     # 获取训练data
-    df = getTraindata(steelType, stoveNum, input_factors, output_factors, update)
+    code_16, df = getTraindata(steelType, stoveNum, input_factors, output_factors, update)
     # 划分训练集、验证集
     df_train, df_val = train_test_split(df, test_size=val_size, random_state=42)
     # 训练集
@@ -76,10 +77,8 @@ def getTraindata(steelType, stoveNum, input_factors, output_factors, update):
     ------
     code_16: str
         此训练数据对应的编码
-    dataloader_train: DataLoader
-        训练集
-    dataloader_val: DataLoader
-        验证集
+    df_res: DataFrame
+        训练数据
     """
     # 构建文件夹
     train_dir = Path.cwd() / 'dataset' / 'train' / steelType
@@ -103,7 +102,7 @@ def getTraindata(steelType, stoveNum, input_factors, output_factors, update):
     if update==True or not path_train.exists():
         preprocess(steelType, stoveNum, input_factors, output_factors, paths)
     df_res = pd.read_csv(path_train, encoding='gbk')
-    return df_res 
+    return code_16, df_res
 
 
 def getTestdata(steelType, stoveNum, code_16):
@@ -135,7 +134,3 @@ class SteelmakingData(Dataset):
         sample = (np.array(self.df.iloc[index, :self.len_input]),
                  np.array(self.df.iloc[index, self.len_input:]))
         return sample
-
-if __name__ == '__main__':
-    getTrainloader('Q235B-Z', 1, input_factorsTest, output_factorsTest, 64, 64)
-    

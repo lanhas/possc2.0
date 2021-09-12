@@ -1,6 +1,5 @@
 import sys
-sys.path.append('F:\code\python\data_mining\possc2.0')
-
+sys.path.append('.')
 import torch
 import numpy as np
 import pandas as pd

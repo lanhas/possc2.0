@@ -1,5 +1,5 @@
 import sys
-sys.path.append(r'F:\code\python\data_mining\possc2.0')
+sys.path.append('.')
 import joblib
 import numpy as np
 import pandas as pd
@@ -109,6 +109,7 @@ def split(df, input_factors, output_factors, paths):
     ------
     None
     """
+    test_size = 0.15
     path_train, path_test, path_inputScaler, path_outputScaler = paths
     df_input = df.loc[:, input_factors]
     df_output = df.loc[:, output_factors]
@@ -151,7 +152,3 @@ def error_index(df, coef=3.5):
                 error_rows.append(i)
     error_rows = np.unique(error_rows)
     return error_rows
-
-if __name__ == '__main__':
-    # print(sys.argv[0])
-    preprocess('Q235B-Z', 1, input_factorsTest, output_factorsTest)

@@ -1,5 +1,5 @@
 import sys
-sys.path.append(r'F:\code\python\data_mining\possc2.0')
+sys.path.append('.')
 import math
 import json
 import numpy as np
@@ -131,6 +131,9 @@ def decoder(steelType, stoveNum, code_16):
     with open(coder_path, 'r', encoding='gbk') as json_file:
         dict_coder = json.load(json_file)
         json_file.close()
+    # 查找该编码是否存在
+    if not code_16 in dict_coder.keys():
+        raise ValueError('该编码不存在，请检查后重试!')
     # 取出该编码对应的value列表
     values = dict_coder[code_16]['code_value']
     # 解码
@@ -207,13 +210,104 @@ def hex2bin4(str_hex):
         str_bin = str_bin[:2] + ('0'*(4-l)) + str_bin[2:]
     return str_bin[2:]
 
+def find(steelType, stoveNum, mode, value):
+    """
+    根据条件查找结果
+
+    Parameters
+    ----------
+    steelType: str
+        钢种类型
+    stoveNum: int
+        炉号，{1, 2}optional
+    mode: str
+        查找模式,{'k2n', 'n2k', 'k2a', 'n2a'}optional
+        k2n: (key to name)根据模型编码查找模型名
+        n2k: (name to key)根据模型名查找模型编码
+        k2a: (key to accuracy)根据模型编码查找模型精度
+        n2a: (name to accuracy)根据模型名查找模型精度
+    """
+    # 打开json文件中的编码字典
+    coder_path = Path.cwd() / 'models' / 'models_coder' / steelType / Path('stove' + str(stoveNum) + '.json')
+    with open(coder_path, 'r', encoding='gbk') as json_file:
+        dict_coder = json.load(json_file)
+        json_file.close()
+    # 根据模型编码查找模型名
+    if mode == 'k2n':
+        if value in dict_coder.keys():
+            name = dict_coder[str(value)]['name']
+        else:
+            name = None
+        result = name
+    # 根据模型名查找模型编码
+    elif mode == 'n2k':
+        for _, val in enumerate(dict_coder.keys()):
+            if dict_coder[val]['name'] == value:
+                key = val
+            else:
+                key = None
+        result = key
+    # 根据模型编码查找模型精度
+    elif mode == 'k2a':
+        if value in dict_coder.keys():
+            acc = dict_coder[str(value)]['accuracy']
+        else:
+            acc = None
+        result = acc
+    # 根据模型名查找模型精度
+    elif mode == 'n2a':
+        for _, val in enumerate(dict_coder.keys()):
+            if dict_coder[val]['name'] == value:
+                acc = dict_coder[val]['accuracy']
+            else:
+                acc = None
+        result = acc
+    else:
+        print('请输入正确的模式！')
+        result = None
+    print(result)
+    return result
+
+def rename(steelType, stoveNum, code_16, new_name):
+    """
+    通过模型编码更改模型名
+
+    Parameters
+    ----------
+    steelType: str
+        钢种类型
+    stoveNum: int
+        炉号，{1, 2}optional
+    code_16: str
+        需要修改名称的模型编码
+    new_name: str
+        新名称
+    """
+    # 打开json文件中的编码字典
+    coder_path = Path.cwd() / 'models' / 'models_coder' / steelType / Path('stove' + str(stoveNum) + '.json')
+    with open(coder_path, 'r', encoding='gbk') as json_file:
+        dict_coder = json.load(json_file)
+        json_file.close()
+    # 判断code_16是否符合
+    if not code_16 in dict_coder.keys():
+        print('该编码不存在，请检查后重试')
+        return
+    # 判断新名称是否与原名称相同
+    if new_name == dict_coder[str(code_16)]['name']:
+        print('新名称与原名称相同，请选择其他名称！')
+    else:
+        # 判断是否已有该名
+        for _, val in enumerate(dict_coder.keys()):
+            if dict_coder[val]['name'] == new_name:
+                print('该命名已存在，请选择其他名称！')
+                return
+        # 修改模型名
+        with open(coder_path, 'w', encoding='gbk') as json_file:
+            dict_coder[str(code_16)]['name'] = new_name
+            json_str = json.dumps(dict_coder)
+            json_file.write(json_str)
+            json_file.close()
+            print("模型名修改成功！\n 模型编码：{}\n 模型名：{}".format(code_16, new_name))
+
 if __name__ == '__main__':
-    input_factors = ['ingredient_C', 'ingredient_P', 'ingredient_S', 'feLiquid_temp',
-                'feLiquid_enclose', 'feScrapped_enclose', 'feLqCons_enclose', 'feRawCons_enclose', 
-                'steelLiquid', 'oxygenSupply_time', 'oxygen_consume', 'lime_append', 'limestone_append',
-                'dolomite_append', 'mineral_append', 'qingshao_append', 'steelLiq_pullTemp1', 'nitrogen_time']
-    code_16 = encoder('Q235B-Z', 2, input_factors, output_factorsTest)
-    print(code_16)
-    input_factors, output_factors = decoder('Q235B-Z', 2, code_16)
-    print(input_factors)
-    print(output_factors)
+    rename('Q235B-Z', 1, '0x1', 'test3')

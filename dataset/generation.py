@@ -1,5 +1,5 @@
-# import sys
-# sys.path.append('F:\code\python\data_mining\possc2.0')
+import sys
+sys.path.append('.')
 import re
 import pandas as pd
 from pathlib import Path

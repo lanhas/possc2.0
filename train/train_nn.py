@@ -1,5 +1,5 @@
 import sys
-sys.path.append(r'F:\code\python\data_mining\possc2.0')
+sys.path.append('.')
 import json
 import torch
 import numpy as np
@@ -13,6 +13,20 @@ from models.bp_network import BpNet
 from dataset.dataloader import getTrainloader, getTestdata
 
 def train(steelType, stoveNum, input_factors, output_factors):
+    """
+    模型训练
+
+    Parameters
+    ----------
+    steelType: str
+        钢种类型
+    stoveNum: int
+        炉号，{1, 2}optional
+    input_factors: list
+        影响因素，可能对结果产生影响的输入因素
+    output_factors: list
+        回归因素，输出因素
+    """
     #-------------------------------------------------------------------#
     #------------------------------ 超参数 ------------------------------#
     #-------------------------------------------------------------------#
@@ -26,7 +40,7 @@ def train(steelType, stoveNum, input_factors, output_factors):
 
     # 参数设置
     lr = 2e-4
-    epoches = 150
+    epoches = 30
     batch_size = 64
     val_batch_size = 64
     name = ['tarin_loss', 'val_loss', 'acc_test']
@@ -144,9 +158,9 @@ def plot_result(loss_trained, loss_valed, acc):
     plt.title('Train Result')
     plt.xticks(np.arange(0, len(index), step=5))
     plt.ylim(0, 1)
-    plt.plot(index, loss_trained, label='predict', color='r')
-    plt.plot(index, loss_valed,  label='original', color='pink')
-    plt.plot(index, acc,  label='accuracy', color='orange')
+    plt.plot(index, loss_trained, label='predict', color='deepskyblue')
+    plt.plot(index, loss_valed,  label='original', color='orange')
+    plt.plot(index, acc,  label='accuracy', color='pink')
     plt.legend(['train_loss', 'val_loss', 'accuracy'])
     plt.show()
 
