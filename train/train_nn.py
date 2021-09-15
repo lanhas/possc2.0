@@ -1,7 +1,10 @@
 import sys
+
+from torch.utils.data import dataloader
 sys.path.append('.')
 import json
 import torch
+from tqdm import tqdm
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
@@ -10,7 +13,7 @@ from constants.parameters import *
 from pathlib import Path
 from visdom import Visdom
 from models.bp_network import BpNet
-from dataset.dataloader import getTrainloader, getTestdata
+from dataset.dataloader import *
 
 def train(steelType, stoveNum, input_factors, output_factors):
     """
@@ -32,18 +35,17 @@ def train(steelType, stoveNum, input_factors, output_factors):
     #-------------------------------------------------------------------#
 
     # 训练设置
-    enable_vis = False      # 使用visdom可视化训练过程
-    update = True           # 更新训练数据，if True 每次训练时都先生成一遍训练数据，else当本地数据存在时，直接加载训练
+    enable_vis = True     # 使用visdom可视化训练过程
+    update = False           # 更新训练数据，if True 每次训练时都先生成一遍训练数据，else当本地数据存在时，直接加载训练
     simple_print = False    # 是否输出最简训练信息
-    test = True             # 训练时使用测试集进行动态验证
     plot = True             # 绘制训练结果
 
     # 参数设置
     lr = 2e-4
-    epoches = 30
+    epochs = 300
     batch_size = 64
-    val_batch_size = 64
-    name = ['tarin_loss', 'val_loss', 'acc_test']
+    split_size = 0.15       # 训练集、验证集比例
+    name = ['loss_train','accu_train', 'loss_valid', 'accu_valid', 'accu_test']
 
     # 可视化设置
     vis = Visdom(port=10086) if enable_vis else None
@@ -52,17 +54,16 @@ def train(steelType, stoveNum, input_factors, output_factors):
     if not simple_print:
         print("Device: %s" %device)
 
-    # setup dataloader
-    code_16, train_loader, val_loader = getTrainloader(steelType, stoveNum, input_factors, output_factors, batch_size, val_batch_size, update=update)
-    if test == True:
-        _, test_input, test_output = getTestdata(steelType, stoveNum, code_16)
+    # DATA
+    code_16, train_loader, valid_loader = load_dataset(steelType, stoveNum, input_factors, output_factors, batch_size, split_size, update=update)
+    dataloader = {'train': train_loader, 'valid': valid_loader}
     # setup model
     model = BpNet(len(input_factors), len(output_factors)).to(device)
     # setup optimizer
-    opt = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
     # 等间隔调整学习率
-    scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size = 30, gamma = 0.1, last_epoch=-1)
-    loss = nn.MSELoss()
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+    losser = nn.MSELoss()
     # setup model path
     modelfolder_path = Path.cwd() / 'models' / 'models_trained' / steelType
     modelfolder_path.mkdir(parents=True, exist_ok=True)
@@ -73,64 +74,75 @@ def train(steelType, stoveNum, input_factors, output_factors):
         dict_coder = json.load(json_file)
         json_file.close()
     best_acc = dict_coder[code_16]['accuracy']      # 模型精确度，大于该精确度的模型将替换之前的模型
-    # Restore
-    loss_his_train = []
-    loss_his_val = []
-    acc_his = []
+    # init
+    loss_list = {'train': [], 'valid': []}
+    accu_list = {'train': [], 'valid': [], 'test': []}
 
     #----------------------------------------train Loop----------------------------------#
-    for epoch in range(epoches):
-        loss_train = 0
-        loss_val = 0
-        model.train()
-        for _, (batch_x, batch_y) in enumerate(train_loader):
-            batch_x = torch.as_tensor(batch_x, dtype=torch.float32).to(device)
-            batch_y = torch.as_tensor(batch_y, dtype=torch.float32).to(device)
-            outputs = model(batch_x)
-            loss_step = torch.tensor(.0).to(device)
-            for i in range(len(output_factors)):           
-                loss_step += loss(outputs[:, i], batch_y[:, i])
-            opt.zero_grad()
-            loss_step.backward()
-            opt.step()
-            loss_train += float(loss_step.item())
-        model.eval()
-        with torch.no_grad():
-            for _, (batch_x, batch_y) in enumerate(val_loader):
-                batch_x = torch.as_tensor(batch_x, dtype=torch.float32).to(device)
-                batch_y = torch.as_tensor(batch_y, dtype=torch.float32).to(device)
-                outputs = model(batch_x)
-                loss_step = torch.tensor(.0).to(device)
-                for i in range(len(output_factors)):
-                    loss_step += loss(outputs[:, i], batch_y[:, i])
-                loss_val += float(loss_step.item())
-        if test:
-            test_x = torch.as_tensor(test_input, dtype=torch.float32).to(device)
-            output = model(test_x).detach().cpu().numpy()
-            acc_test = accuracy(output, test_output)
-            if acc_test < 0:
-                acc_test = 0
+    for e in range(epochs):
+        print('Epoch{}/{}'.format(e, epochs - 1))
+        for phase in ['train', 'valid']:
+            if phase == 'train':
+                model = set_training(model, True)
+            else:
+                model = set_training(model, False)
+            run_loss = 0.0
+            run_accu = 0.0
+            with tqdm(dataloader[phase], desc=phase) as iterator:
+                for batch_x, batch_y in iterator:
+                    batch_x = batch_x.to(device)
+                    batch_y = batch_y.to(device)
+
+                    # Forward
+                    out = model(batch_x)
+                    loss = losser(out, batch_y)
+
+                    if phase == 'train':
+                        # Backward
+                        model.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                    run_loss += loss.item()
+                    accu = accuracy(out.detach().cpu().numpy(),
+                                    batch_y.detach().cpu().numpy())
+                    run_accu += accu
+                    
+                    iterator.set_postfix_str(' loss: {:.4f}, accu: {:.4f}'.format(
+                        loss.item(), accu))
+                    iterator.update()
+                    # break
+            loss_list[phase].append(run_loss / len(iterator))
+            accu_list[phase].append(run_accu / len(iterator))
+            # break
+
+        # evaluation
+        model = set_training(model, False)
+        _, x_test, y_test = load_testData(steelType, stoveNum, code_16)
+        test_x = torch.as_tensor(x_test, dtype=torch.float32).to(device)
+        output = model(test_x).detach().cpu().numpy()
+        acc_test = accuracy(output, y_test)
+        if acc_test < 0:
+            acc_test = 0
         # 学习率调整
         scheduler.step()
-        # 计算loss
-        loss_trained = loss_train / len(train_loader)
-        loss_valed = loss_val / len(val_loader)
-        
-        loss_his_train.append(loss_trained)
-        loss_his_val.append(loss_valed)
-        acc_his.append(acc_test)
-        # 精简模型将不输出训练细节
-        if not simple_print:
-            if epoch % 10 == 0:
-                print("Epoch:{}".format(epoch))
-                print("train loss: {}".format(loss_trained))
-                print("val loss: {}".format(loss_valed))
-                print("acc_test:{}".format(acc_test))
+        accu_list['test'].append(acc_test)
+
+        currLoss_train = loss_list['train'][-1]
+        currAccu_train = accu_list['train'][-1] if accu_list['train'][-1] > 0 else 0
+        currLoss_valid = loss_list['valid'][-1]
+        currAccu_valid = accu_list['valid'][-1] if accu_list['valid'][-1] > 0 else 0
+        currAccu_test = accu_list['test'][-1] if accu_list['test'][-1] > 0 else 0
+        if e % 10 == 0:
+            print('Summary epoch:\n - Train loss: {:.4f}, accu: {:.4f}\n - Valid loss:'
+                    ' {:.4f}, accu: {:.4f}\n, TestAcc: {}'.format(currLoss_train, currAccu_train,
+                                                    currLoss_valid, currAccu_valid, currAccu_test))
         if enable_vis:
-            vis.line(np.column_stack((loss_trained, loss_valed, acc_test)), [epoch], win='train_log', update='append', opts=dict(title='losses', legend=name))
+            vis.line(np.column_stack((currLoss_train, currAccu_train, currLoss_valid, currAccu_valid, currAccu_test)), \
+                        [e], win='train_log', update='append', opts=dict(title='training', legend=name))
+        # save
         # 大于accuracy的模型将被保存
-        if acc_test > best_acc:
-            best_acc = acc_test
+        if currAccu_test > best_acc:
+            best_acc = currAccu_test
             # 更改json文件中的最高精度
             with open(coder_path, 'w', encoding='gbk') as json_file:
                 dict_coder[code_16]['accuracy'] = round(best_acc, 2)
@@ -139,11 +151,13 @@ def train(steelType, stoveNum, input_factors, output_factors):
                 json_file.close()
             # 保存模型
             torch.save(model.state_dict(), model_path)
+    del train_loader, valid_loader
 
-    print("训练完成\n模型编码: {}\n 模型名：{}\n 模型精度：{:.2f}\n 最优精度：{:.2f}\n".format \
-         (code_16, code_16, acc_test*10+90, best_acc*10+90))
-    if plot:
-        plot_result(loss_his_train, loss_his_val, acc_his)
+def set_training(model, mode=True):
+    for p in model.parameters():
+        p.requires_grad = mode
+    model.train(mode)
+    return model
 
 def accuracy(predict_list, original_list):
     y_pred = np.asarray(predict_list)
@@ -165,4 +179,4 @@ def plot_result(loss_trained, loss_valed, acc):
     plt.show()
 
 if __name__ == '__main__':
-    train('Q235B-Z', 1, input_factorsTest, output_factorsTest)
+    train('Q235B-Z', 2, input_factorsTest, output_factorsTest)

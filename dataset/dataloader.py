@@ -1,15 +1,16 @@
 import sys
 sys.path.append('.')
 from constants.parameters import *
+import torch
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from utils.coder import *
 from dataset.preprocess import preprocess
-from torch.utils.data import DataLoader, Dataset
+from torch.utils import data
 from sklearn.model_selection import train_test_split
 
-def getTrainloader(steelType, stoveNum, input_factors, output_factors, batch_size, val_batch_size, update=False):
+def load_dataset(steelType, stoveNum, input_factors, output_factors, batch_size, split_size=0.15, update=False):
     """
     获取训练数据，并将其封装为DataLoader对象
 
@@ -25,8 +26,8 @@ def getTrainloader(steelType, stoveNum, input_factors, output_factors, batch_siz
         回归因素，输出因素
     batch_size: int
         训练集batch_size
-    val_batch_size: int
-        验证集batch_size
+    split_size: float
+        训练集验证集的分割比例
     update: bool
         是否更新数据，if True 将根据训练参数重新更新一次训练用数据
     
@@ -34,25 +35,32 @@ def getTrainloader(steelType, stoveNum, input_factors, output_factors, batch_siz
     ------
     code_16: str
         此训练数据对应的编码
-    dataloader_train: DataLoader
+    train_loader: DataLoader
         训练集
-    dataloader_val: DataLoader
+    valid_loader: DataLoader
         验证集
     """
-    val_size = 0.15
     # 获取训练data
-    code_16, df = getTraindata(steelType, stoveNum, input_factors, output_factors, update)
-    # 划分训练集、验证集
-    df_train, df_val = train_test_split(df, test_size=val_size, random_state=42)
-    # 训练集
-    data_train = SteelmakingData(df_train, len(input_factors))
-    dataloader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True)
-    # 验证集
-    data_val = SteelmakingData(df_val, len(input_factors))
-    dataloader_val = DataLoader(data_val, batch_size=val_batch_size, shuffle=True)
-    return code_16, dataloader_train, dataloader_val
+    code_16, df = load_trainData(steelType, stoveNum, input_factors, output_factors, update)
+    # 划分数据集
+    if split_size > 0:
+        x_train, x_valid, y_train, y_valid = train_test_split(np.array(df.loc[:, input_factors]), \
+                                            np.array(df.loc[:, output_factors]), test_size=split_size, random_state=42)
+        train_set = data.TensorDataset(torch.tensor(x_train, dtype=torch.float32),
+                                       torch.tensor(y_train, dtype=torch.float32))
+        valid_set = data.TensorDataset(torch.tensor(x_valid, dtype=torch.float32),
+                                       torch.tensor(y_valid, dtype=torch.float32))
+        train_loader = data.DataLoader(train_set, batch_size, shuffle=True)
+        valid_loader = data.DataLoader(valid_set, batch_size)
+    else:
+        train_set = data.TensorDataset(torch.tensor(df.loc[input_factors], dtype=torch.float32),
+                                       torch.tensor(df.loc[output_factors], dtype=torch.float32))
+        train_loader = data.DataLoader(train_set, batch_size, shuffle=True)
+        valid_loader = None
+    return code_16, train_loader, valid_loader
 
-def getTraindata(steelType, stoveNum, input_factors, output_factors, update):
+
+def load_trainData(steelType, stoveNum, input_factors, output_factors, update):
     """
     获取训练数据，返回其对应的dataframe
 
@@ -105,7 +113,7 @@ def getTraindata(steelType, stoveNum, input_factors, output_factors, update):
     return code_16, df_res
 
 
-def getTestdata(steelType, stoveNum, code_16):
+def load_testData(steelType, stoveNum, code_16):
     # 获得编码
     input_factors, output_factors = decoder(steelType, stoveNum, code_16)
     # 获得文件的保存路径
@@ -119,18 +127,18 @@ def getTestdata(steelType, stoveNum, code_16):
     # 训练集
     return code_16, np.array(df_input), np.array(df_output)
 
-class SteelmakingData(Dataset):
-    """
-    将数据封装为Dataset对象
-    """
-    def __init__(self, df, len_input):
-        self.df = df
-        self.len_input = len_input
+# class SteelmakingData(Dataset):
+#     """
+#     将数据封装为Dataset对象
+#     """
+#     def __init__(self, df, len_input):
+#         self.df = df
+#         self.len_input = len_input
 
-    def __len__(self):
-        return self.df.shape[0]
+#     def __len__(self):
+#         return self.df.shape[0]
 
-    def __getitem__(self, index):
-        sample = (np.array(self.df.iloc[index, :self.len_input]),
-                 np.array(self.df.iloc[index, self.len_input:]))
-        return sample
+#     def __getitem__(self, index):
+#         sample = (np.array(self.df.iloc[index, :self.len_input]),
+#                  np.array(self.df.iloc[index, self.len_input:]))
+#         return sample
