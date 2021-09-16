@@ -1,10 +1,7 @@
 import sys
-
-from torch.utils.data import dataloader
 sys.path.append('.')
 import json
 import torch
-from tqdm import tqdm
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
@@ -42,7 +39,7 @@ def train(steelType, stoveNum, input_factors, output_factors):
 
     # 参数设置
     lr = 2e-4
-    epochs = 300
+    epochs = 120
     batch_size = 64
     split_size = 0.15       # 训练集、验证集比例
     name = ['loss_train','accu_train', 'loss_valid', 'accu_valid', 'accu_test']
@@ -80,7 +77,6 @@ def train(steelType, stoveNum, input_factors, output_factors):
 
     #----------------------------------------train Loop----------------------------------#
     for e in range(epochs):
-        print('Epoch{}/{}'.format(e, epochs - 1))
         for phase in ['train', 'valid']:
             if phase == 'train':
                 model = set_training(model, True)
@@ -88,31 +84,28 @@ def train(steelType, stoveNum, input_factors, output_factors):
                 model = set_training(model, False)
             run_loss = 0.0
             run_accu = 0.0
-            with tqdm(dataloader[phase], desc=phase) as iterator:
-                for batch_x, batch_y in iterator:
-                    batch_x = batch_x.to(device)
-                    batch_y = batch_y.to(device)
+            # with tqdm(dataloader[phase], desc=phase) as iterator:
 
-                    # Forward
-                    out = model(batch_x)
-                    loss = losser(out, batch_y)
+            for batch_x, batch_y in dataloader[phase]:
+                batch_x = batch_x.to(device)
+                batch_y = batch_y.to(device)
 
-                    if phase == 'train':
-                        # Backward
-                        model.zero_grad()
-                        loss.backward()
-                        optimizer.step()
-                    run_loss += loss.item()
-                    accu = accuracy(out.detach().cpu().numpy(),
-                                    batch_y.detach().cpu().numpy())
-                    run_accu += accu
-                    
-                    iterator.set_postfix_str(' loss: {:.4f}, accu: {:.4f}'.format(
-                        loss.item(), accu))
-                    iterator.update()
-                    # break
-            loss_list[phase].append(run_loss / len(iterator))
-            accu_list[phase].append(run_accu / len(iterator))
+                # Forward
+                out = model(batch_x)
+                loss = losser(out, batch_y)
+
+                if phase == 'train':
+                    # Backward
+                    model.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                run_loss += loss.item()
+                accu = accuracy(out.detach().cpu().numpy(),
+                                batch_y.detach().cpu().numpy())
+                run_accu += accu
+                # break
+            loss_list[phase].append(run_loss / len(dataloader[phase]))
+            accu_list[phase].append(run_accu / len(dataloader[phase]))
             # break
 
         # evaluation
@@ -132,7 +125,8 @@ def train(steelType, stoveNum, input_factors, output_factors):
         currLoss_valid = loss_list['valid'][-1]
         currAccu_valid = accu_list['valid'][-1] if accu_list['valid'][-1] > 0 else 0
         currAccu_test = accu_list['test'][-1] if accu_list['test'][-1] > 0 else 0
-        if e % 10 == 0:
+        if e % 10 == 0 and simple_print == False:
+            print('Epoch{}/{}'.format(e, epochs - 1))
             print('Summary epoch:\n - Train loss: {:.4f}, accu: {:.4f}\n - Valid loss:'
                     ' {:.4f}, accu: {:.4f}\n, TestAcc: {}'.format(currLoss_train, currAccu_train,
                                                     currLoss_valid, currAccu_valid, currAccu_test))
@@ -151,6 +145,11 @@ def train(steelType, stoveNum, input_factors, output_factors):
                 json_file.close()
             # 保存模型
             torch.save(model.state_dict(), model_path)
+        
+    print("训练完成\n模型编码: {}\n 模型名：{}\n 模型精度：{:.2f}\n 最优精度：{:.2f}\n".format \
+        (code_16, code_16, acc_test*10+90, best_acc*10+90))
+    if plot:
+        plot_result(loss_list['train'], loss_list['valid'], accu_list['test'])
     del train_loader, valid_loader
 
 def set_training(model, mode=True):
@@ -179,4 +178,4 @@ def plot_result(loss_trained, loss_valed, acc):
     plt.show()
 
 if __name__ == '__main__':
-    train('Q235B-Z', 2, input_factorsTest, output_factorsTest)
+    train('Q235B-Z', 1, input_factorsTest, output_factorsTest)
