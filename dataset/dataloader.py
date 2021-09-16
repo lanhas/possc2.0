@@ -58,7 +58,13 @@ def load_dataset(steelType, stoveNum, input_factors, output_factors, batch_size,
         train_loader = data.DataLoader(train_set, batch_size, shuffle=True)
         valid_loader = None
     return code_16, train_loader, valid_loader
-
+    # # 训练集
+    # data_train = SteelmakingData(df_train, len(input_factors))
+    # dataloader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True)
+    # # 验证集
+    # data_val = SteelmakingData(df_val, len(input_factors))
+    # dataloader_val = DataLoader(data_val, batch_size=val_batch_size, shuffle=True)
+    # return code_16, dataloader_train, dataloader_val
 
 def load_trainData(steelType, stoveNum, input_factors, output_factors, update):
     """
