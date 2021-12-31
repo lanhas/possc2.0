@@ -42,7 +42,7 @@ This is a new pytorch deep learning project that recognizes data processing and 
 # Python 3.8.5
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 conda install ujson
-pip install visdom opencv-python scikit-learn joblib 
+pip install visdom scikit-learn joblib 
 ```
 
 ## 参数更改
